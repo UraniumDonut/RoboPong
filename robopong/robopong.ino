@@ -141,9 +141,18 @@ class Handschuh{ //Connected to pin 22 on black/orange and pin 21 on yellow/yell
     return false;
   }
   int getAngle(){
+    if(d.x > 40){
+      return 40;
+    }
+    if(d.x < -40){
+      return -40;
+    }
     return d.x;
   }
   int getStrength(){
+    if(speedbefore > 100){
+      return 100;
+    }
     return speedbefore;
   }
 };

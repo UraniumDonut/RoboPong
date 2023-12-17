@@ -8,6 +8,8 @@
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <FastLED.h>
+#include <ESP32Servo.h>
+#include <iostream>
 #define DATA_PIN 5
 const int DELAY = 25;
 
@@ -157,31 +159,78 @@ class Handschuh{ //Connected to pin 22 on black/orange and pin 21 on yellow/yell
   }
 };
 
+class Arm{
+  private:
+    const int throwPin = 16;
+    const int turnPin = 17;
+    Servo motorthrow;
+    Servo motorturn;
+
+  public:
+    Arm(){
+      motorthrow.setPeriodHertz(50);
+      motorturn.setPeriodHertz(50);
+      motorthrow.attach(throwPin, 500, 2500);
+      motorturn.attach(turnPin, 500, 2500);
+      delay(100);
+      motorthrow.write(40);
+      motorturn.write(90);
+      delay(100);
+    }
+    void throwb(int input){
+      int deg = 0;
+      int retract = 40;
+      double fine = 0.5;
+
+      deg = (input - 10) /3 + 70;
+      fine = (input - 10) /3 + 70 - deg;
+      if(fine > 0.5){
+        deg = deg + 1;
+      }
+      motorthrow.write(deg);
+      Serial.print("Wurfgrad: ");
+      Serial.print(deg);
+      Serial.print("\n");
+      
+      delay(2000);
+      retract = deg;
+      while(retract > 40){
+        retract = retract - 1;
+        motorthrow.write(retract);
+        delay(20);
+      }
+    }
+    void turn(int input){
+      motorturn.write(90+input);
+    }
+};
+
+
 // Zuklappen
 class LEDStrip{
   private:
-    CRGB leds[5];
+    CRGB leds[8];
   public:
     LEDStrip(){
 
     }
     void init(){
-      FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, 5);
+      FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, 8);
     }
     void update(int schritt){
       if(schritt < 0){
-        for(int i = 0; i < 5; i++){
+        for(int i = 0; i < 8; i++){
           leds[i] = CRGB::Red;
         }
       }
       else if(schritt > 0){
-        for(int i = 0; i < 5; i++){
-          leds[i] = CRGB::Yellow;
+        for(int i = 0; i < 8; i++){
+          leds[i] = 0XFFAA00;
         }
       }
       else{
-        for(int i = 0; i < 5; i++){
-          leds[i] = CRGB::Green;
+        for(int i = 0; i < 8; i++){
+          leds[i] = 0X00FF00;
         }
       }
       FastLED.show();
@@ -190,6 +239,7 @@ class LEDStrip{
 
 LEDStrip strip;
 Handschuh handschuh;
+Arm arm;
 int schritt;
 // -1 = Stop
 // 0 = Move!
@@ -223,7 +273,7 @@ void loop() {
   else if(schritt == 2){ //====DRIFTRESET====
     //===== HIER FEHLT DIE MOTION DETECTION, ABER JOA MAN BRAUCHTS AUCH NED WIRKLICH SO KRASS
     strip.update(schritt);
-    delay(5000);
+    delay(4000);
     handschuh.resetAll(); 
     Serial.println("Drift was reset!");
     schritt = 1;
@@ -234,12 +284,16 @@ void loop() {
       int strength = handschuh.getStrength();
       Serial.print("Throw detcted with Strength ");//servo.send(strength);
       Serial.println(strength);
+      schritt = -1;
+      strip.update(schritt);
+      arm.throwb(strength);
       counter = 0;
       schritt = -1;
     }
     else{ //We just aimed
       int angle = handschuh.getAngle();
       Serial.println(angle);//servo.send(angle);
+      arm.turn(angle);
       counter++;
     }
     if(counter > (15000/DELAY)){
